@@ -25,9 +25,22 @@ async function run() {
     await client.connect();
 
     // Get the database and collection on which to run the operation
+    const userCollection = client.db("bistroDB").collection("users");
     const menuCollection = client.db("bistroDB").collection("menu");
     const reviewsCollection = client.db("bistroDB").collection("reviews");
     const cartsCollection = client.db("bistroDB").collection("carts");
+
+    // users related api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
 
     // get all menu
     app.get("/menu", async (req, res) => {
