@@ -86,7 +86,6 @@ async function run() {
       let admin = false;
       if (user) {
         admin = user.role === "admin";
-        console.log(user);
       }
       res.send({ admin });
     });
@@ -137,7 +136,15 @@ async function run() {
 
     app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
+      console.log(item);
       const result = await menuCollection.insertOne(item);
+      res.send(result);
+    });
+
+    app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
       res.send(result);
     });
 
