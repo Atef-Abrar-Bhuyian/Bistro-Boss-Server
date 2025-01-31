@@ -5,9 +5,11 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
+
 // middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { default: axios } = require("axios");
@@ -146,7 +148,6 @@ async function run() {
 
     app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
-      console.log(item);
       const result = await menuCollection.insertOne(item);
       res.send(result);
     });
@@ -222,7 +223,6 @@ async function run() {
       const paymentResult = await paymentCollection.insertOne(payment);
 
       // carefully delete each item from the cart
-      console.log("Payment Info: ", payment);
       const query = {
         _id: {
           $in: payment.cartIds.map((id) => new ObjectId(id)),
@@ -246,9 +246,7 @@ async function run() {
     // SSL Payment gateway
     app.post("/create-ssl-payment", async (req, res) => {
       const payment = req.body;
-
       const trxId = new ObjectId().toString();
-
       payment.transectionId = trxId;
       const initiate = {
         store_id: process.env.SSL_Store_ID,
@@ -256,19 +254,17 @@ async function run() {
         total_amount: payment?.price,
         currency: "BDT",
         tran_id: trxId, // use unique tran_id for each api call
-        success_url: "http://localhost:5001/success-payment",
+        success_url: "http://localhost:5000/success-payment",
         fail_url: "http://localhost:5173/fail",
         cancel_url: "http://localhost:5173/cancel",
-        ipn_url: "http://localhost:5001/ipn-success-payment",
+        ipn_url: "http://localhost:5000/ipn-success-payment",
         product_name: "Food",
         product_category: "Food",
         product_profile: "physical-goods",
         cus_name: "Customer Name",
         cus_email: payment?.email,
-        cus_name: "Customer Name",
-        cus_email: "cust@y:hoo.com",
-        cus_add1: "haka",
-        cus_add2: "haka",
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
         cus_city: "Dhaka",
         cus_state: "Dhaka",
         cus_postcode: "1000",
@@ -300,17 +296,49 @@ async function run() {
       });
 
       const savedData = await paymentCollection.insertOne(payment);
-
       const gatewayUrl = iniResponse?.data?.GatewayPageURL;
-
-      console.log(iniResponse);
-      console.log("Gateway URL: ", gatewayUrl);
-
       res.send({ gatewayUrl });
     });
 
+    app.post("/success-payment", async (req, res) => {
+      // successData
+      const paymentSuccess = req.body;
 
-  
+      // validation
+      const { data } = await axios.get(
+        `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?val_id=${paymentSuccess?.val_id}&store_id=${process.env.SSL_Store_ID}&store_passwd=${process.env.SSL_Store_PASS}`
+      );
+
+      console.log("DATA: ", data.status);
+
+      if (data.status !== "VALID") {
+        return res.send({ message: "Invalid Payment" });
+      }
+
+      // update the payemnt
+      const updatePayment = await paymentCollection.updateOne(
+        { transectionId: data.tran_id },
+        {
+          $set: {
+            status: "success",
+          },
+        }
+      );
+
+      const payment = await paymentCollection.findOne({
+        transectionId: data.tran_id,
+      });
+
+      // carefully dlt cart from db
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+
+      const deleteResult = await cartsCollection.deleteMany(query);
+      res.redirect("http://localhost:5173/success");
+    });
 
     // stats or analytics
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
