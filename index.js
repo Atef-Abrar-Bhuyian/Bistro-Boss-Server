@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { default: axios } = require("axios");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.68dnu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -24,7 +25,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     // Get the database and collection on which to run the operation
     const userCollection = client.db("bistroDB").collection("users");
@@ -242,6 +243,75 @@ async function run() {
       res.send(result);
     });
 
+    // SSL Payment gateway
+    app.post("/create-ssl-payment", async (req, res) => {
+      const payment = req.body;
+
+      const trxId = new ObjectId().toString();
+
+      payment.transectionId = trxId;
+      const initiate = {
+        store_id: process.env.SSL_Store_ID,
+        store_passwd: process.env.SSL_Store_PASS,
+        total_amount: payment?.price,
+        currency: "BDT",
+        tran_id: trxId, // use unique tran_id for each api call
+        success_url: "http://localhost:5001/success-payment",
+        fail_url: "http://localhost:5173/fail",
+        cancel_url: "http://localhost:5173/cancel",
+        ipn_url: "http://localhost:5001/ipn-success-payment",
+        product_name: "Food",
+        product_category: "Food",
+        product_profile: "physical-goods",
+        cus_name: "Customer Name",
+        cus_email: payment?.email,
+        cus_name: "Customer Name",
+        cus_email: "cust@y:hoo.com",
+        cus_add1: "haka",
+        cus_add2: "haka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
+        ship_postcode: "1000",
+        ship_country: "Bangladesh",
+        multi_card_name: "mastercard,visacard,amexcard",
+        value_a: "ref001_A",
+        value_b: "ref002_B",
+        value_c: "ref003_C",
+        value_d: "ref004_D",
+        shipping_method: "NO",
+      };
+
+      const iniResponse = await axios({
+        url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+        method: "POST",
+        data: initiate,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+
+      const savedData = await paymentCollection.insertOne(payment);
+
+      const gatewayUrl = iniResponse?.data?.GatewayPageURL;
+
+      console.log(iniResponse);
+      console.log("Gateway URL: ", gatewayUrl);
+
+      res.send({ gatewayUrl });
+    });
+
+
+  
+
     // stats or analytics
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
@@ -310,10 +380,10 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
