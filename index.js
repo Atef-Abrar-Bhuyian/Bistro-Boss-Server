@@ -254,10 +254,10 @@ async function run() {
         total_amount: payment?.price,
         currency: "BDT",
         tran_id: trxId, // use unique tran_id for each api call
-        success_url: "http://localhost:5000/success-payment",
+        success_url: "https://bistro-boss-server-rho-jet.vercel.app/success-payment",
         fail_url: "http://localhost:5173/fail",
         cancel_url: "http://localhost:5173/cancel",
-        ipn_url: "http://localhost:5000/ipn-success-payment",
+        ipn_url: "https://bistro-boss-server-rho-jet.vercel.app/ipn-success-payment",
         product_name: "Food",
         product_category: "Food",
         product_profile: "physical-goods",
